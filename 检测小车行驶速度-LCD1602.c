@@ -7,10 +7,6 @@
 #include <STC12C5A60S2.H>//头文件
 #include <LCD1602.h>
 
-sbit IN1=P1^0;
-sbit IN2=P1^1;
-sbit IN3=P1^2;
-sbit IN4=P1^3;
 
 unsigned int motor1=0;	 //计左电机码盘脉冲值
 unsigned int motor2=0;	 //计右电机码盘脉冲值
@@ -18,13 +14,6 @@ unsigned int speed1=0;	 //计左电机码盘脉冲值
 unsigned int speed2=0;	 //计右电机码盘脉冲值
 unsigned int k=0;
 
-void Forward(void)
-{
-        IN1=1;
-        IN2=0;
-        IN3=0;
-        IN4=1;
-}
 
 /********************************************************************************************
 定时器0初始化
@@ -50,6 +39,72 @@ void INT_init (void)
 //	EX1 = 1;
 //	IT1	= 1;
 }
+#define MVF_LENGTH 5
+float moving_average_filtre(float xn)
+{
+  static int index = -1;
+  static float buffer[MVF_LENGTH];
+  static float sum = 0;
+  float yn = 0;
+  int i = 0;
+  if(index == -1)
+  {
+	//初始化
+    for(i = 0; i <MVF_LENGTH; i++)
+    {
+      buffer[i] = xn;
+    }
+    sum = xn*MVF_LENGTH;
+    index = 0;
+  }
+  else
+  {
+    sum -= buffer[index];
+    buffer[index] = xn;
+    sum += xn;
+    index++;
+    if(index >= MVF_LENGTH)
+    {
+      index = 0;
+    }
+  }
+  yn = sum/MVF_LENGTH;
+  return yn;
+}
+
+
+float moving_average_filtre1(float xn)
+{
+  static int index = -1;
+  static float buffer[MVF_LENGTH];
+  static float sum = 0;
+  float yn = 0;
+  int i = 0;
+  if(index == -1)
+  {
+	//初始化
+    for(i = 0; i <MVF_LENGTH; i++)
+    {
+      buffer[i] = xn;
+    }
+    sum = xn*MVF_LENGTH;
+    index = 0;
+  }
+  else
+  {
+    sum -= buffer[index];
+    buffer[index] = xn;
+    sum += xn;
+    index++;
+    if(index >= MVF_LENGTH)
+    {
+      index = 0;
+    }
+  }
+  yn = sum/MVF_LENGTH;
+  return yn;
+}
+
 
 /*********************************************************************************************
 主程序
@@ -60,7 +115,7 @@ void main(void)
 	LCD1602_Frist();
 	INT_init();
 	T0_init();
-	Forward();
+
 	while (1)
 	{
 		print(line_one,0,'M');
@@ -80,22 +135,22 @@ void main(void)
 		print(line_one,14,'I');
 		print(line_one,15,'N');
 
-////		print(line_two,0,'M');
-////		print(line_two,1,'o');
-////		print(line_two,2,'t');
-////		print(line_two,3,'o');
-////		print(line_two,4,'r');
-////		print(line_two,5,'2');
-////		print(line_two,6,':');
-////		print(line_two,7,speed2/1000+0x30);
-////		print(line_two,8,speed2/100%10+0x30);
-////		print(line_two,9,speed2/10%10+0x30);
-////		print(line_two,10,speed2%10+0x30);
-////		print(line_two,11,'R');
-////		print(line_two,12,'/');
-////		print(line_two,13,'M');
-////		print(line_two,14,'I');
-////		print(line_two,15,'N');
+		print(line_two,0,'M');
+		print(line_two,1,'o');
+		print(line_two,2,'t');
+		print(line_two,3,'o');
+		print(line_two,4,'r');
+		print(line_two,5,'2');
+		print(line_two,6,':');
+		print(line_two,7,speed2/1000+0x30);
+		print(line_two,8,speed2/100%10+0x30);
+		print(line_two,9,speed2/10%10+0x30);
+		print(line_two,10,speed2%10+0x30);
+		print(line_two,11,'R');
+		print(line_two,12,'/');
+		print(line_two,13,'M');
+		print(line_two,14,'I');
+		print(line_two,15,'N');
 				DELAY_MS(250);
 		LCD1602_WriteCMD(CMD_clear);
 		}
@@ -116,6 +171,8 @@ void intersvr2(void) interrupt 2 using 3
 	motor2++;
 }
 
+
+
 /********************************************************************************************
 定时器0中断函数
 注意：这里的speed为简单书写，逻辑公式过程应该为
@@ -131,7 +188,7 @@ void T0 (void) interrupt 1  using 2
 	{
 		k=0;			//重新定义k的值
 		speed1=motor1*3;
-		speed2=motor2*3;
+		speed2= moving_average_filtre1( moving_average_filtre(motor1)*3);			// 先除20(光栅数) *60(数据是测的1s)
 		motor1=0;	 	//重新定义motor1的值
 		motor2=0;		//重新定义motor1的值
 	}		
