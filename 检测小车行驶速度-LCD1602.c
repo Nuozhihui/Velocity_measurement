@@ -4,14 +4,13 @@
 论坛：rtrobot.org　　　                                                
 /******************************************************************************************/
 
-#include <STC12C5A60S2.H>//头文件
-#include <LCD1602.h>
+#include <REG52.H>//头文件
+#include <OLED.h>
 
 
+#define GRATING_NUM 20			//配置光栅格子的数量
 unsigned int motor1=0;	 //计左电机码盘脉冲值
-unsigned int motor2=0;	 //计右电机码盘脉冲值
 unsigned int speed1=0;	 //计左电机码盘脉冲值
-unsigned int speed2=0;	 //计右电机码盘脉冲值
 unsigned int k=0;
 
 
@@ -36,8 +35,6 @@ void INT_init (void)
 	EA = 1;			//中断总开关  
 	EX0 = 1; 		//允许外部中断0中断
 	IT0 = 1; 		//1：下沿触发  0：低电平触发
-//	EX1 = 1;
-//	IT1	= 1;
 }
 #define MVF_LENGTH 5
 float moving_average_filtre(float xn)
@@ -105,55 +102,29 @@ float moving_average_filtre1(float xn)
   return yn;
 }
 
-
+int a=123;
 /*********************************************************************************************
 主程序
 /********************************************************************************************/
 void main(void)
 {		
-	LCD1602_Init();
-	LCD1602_Frist();
+	
+	OLED_Init();			//初始化OLED  
+	OLED_Clear()  	;
+	
 	INT_init();
 	T0_init();
+	
+	OLED_ShowString(5,0,"Measuring Speed",16);  
+		OLED_ShowString(85,4,"R/MIN",16);  
 
+	OLED_ShowString(0,4,"Speed:",16); 
 	while (1)
 	{
-		print(line_one,0,'M');
-		print(line_one,1,'o');
-		print(line_one,2,'t');
-		print(line_one,3,'o');
-		print(line_one,4,'r');
-		print(line_one,5,'1');
-		print(line_one,6,':');
-		print(line_one,7,speed1/1000+0x30);
-		print(line_one,8,speed1/100%10+0x30);
-		print(line_one,9,speed1/10%10+0x30);
-		print(line_one,10,speed1%10+0x30);
-		print(line_one,11,'R');
-		print(line_one,12,'/');
-		print(line_one,13,'M');
-		print(line_one,14,'I');
-		print(line_one,15,'N');
 
-		print(line_two,0,'M');
-		print(line_two,1,'o');
-		print(line_two,2,'t');
-		print(line_two,3,'o');
-		print(line_two,4,'r');
-		print(line_two,5,'2');
-		print(line_two,6,':');
-		print(line_two,7,speed2/1000+0x30);
-		print(line_two,8,speed2/100%10+0x30);
-		print(line_two,9,speed2/10%10+0x30);
-		print(line_two,10,speed2%10+0x30);
-		print(line_two,11,'R');
-		print(line_two,12,'/');
-		print(line_two,13,'M');
-		print(line_two,14,'I');
-		print(line_two,15,'N');
-				DELAY_MS(250);
-		LCD1602_WriteCMD(CMD_clear);
-		}
+	OLED_ShowNum(50,4,speed1,4,16);
+
+	}
 }
 
 /*********************************************************************************************
@@ -163,15 +134,6 @@ void intersvr1(void) interrupt 0 using 1
 {
 	motor1++;		
 }
-/*********************************************************************************************
-外部中断INT1计算电机2的脉冲
-/********************************************************************************************/
-void intersvr2(void) interrupt 2 using 3
-{
-	motor2++;
-}
-
-
 
 /********************************************************************************************
 定时器0中断函数
@@ -179,7 +141,7 @@ void intersvr2(void) interrupt 2 using 3
 speed2=小车轮子周长/码盘格式*1秒的码盘脉冲格数
 定时器做出的效果为算出一秒内的距离
 /********************************************************************************************/ 
-void T0 (void) interrupt 1  using 2
+void T0_CNT (void) interrupt 1  using 2
 {
 	TH0=(65536-1000)/256;	//16位计数寄存器T0高8位，尝试修改1000成其他值
 	TL0=(65536-1000)%256;	//16位计数寄存器T0低8位，尝试修改1000成其他值
@@ -187,9 +149,8 @@ void T0 (void) interrupt 1  using 2
 	if(k==1000)		
 	{
 		k=0;			//重新定义k的值
-		speed1=motor1*3;
-		speed2= moving_average_filtre1( moving_average_filtre(motor1)*3);			// 先除20(光栅数) *60(数据是测的1s)
+		speed1=moving_average_filtre1( moving_average_filtre(motor1)*3);			// 先除20(光栅数) *60(数据是测的1s)
 		motor1=0;	 	//重新定义motor1的值
-		motor2=0;		//重新定义motor1的值
+
 	}		
 }

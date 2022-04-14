@@ -1,3 +1,5 @@
-".\Objects\检测小车行驶速度-LCD1602.obj" 
+".\Objects\检测小车行驶速度-LCD1602.obj",
+".\Objects\oled.obj" 
 TO ".\Objects\Measurement" 
 PRINT(".\Listings\Measurement.m51") RAMSIZE(256) 
+DISABLEWARNING (16) 

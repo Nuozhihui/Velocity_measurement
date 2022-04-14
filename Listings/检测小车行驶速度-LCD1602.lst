@@ -1,10 +1,10 @@
-C51 COMPILER V9.60.0.0   _________________LCD1602                                          04/14/2022 20:34:02 PAGE 1   
+C51 COMPILER V9.60.0.0   _________________LCD1602                                          04/14/2022 21:57:05 PAGE 1   
 
 
 C51 COMPILER V9.60.0.0, COMPILATION OF MODULE _________________LCD1602
 OBJECT MODULE PLACED IN .\Objects\检测小车行驶速度-LCD1602.obj
-COMPILER INVOKED BY: D:\Code\ARM\C51\BIN\C51.EXE 检测小车行驶速度-LCD1602.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND 
-                    -PRINT(.\Listings\检测小车行驶速度-LCD1602.lst) TABS(2) OBJECT(.\Objects\检测小车行驶速度-LCD1602.obj)
+COMPILER INVOKED BY: D:\Code\ARM\C51\BIN\C51.EXE 检测小车行驶速度-LCD1602.c OPTIMIZE(8,SPEED) BROWSE INCDIR(.\OLED) DEBU
+                    -G OBJECTEXTEND PRINT(.\Listings\检测小车行驶速度-LCD1602.lst) TABS(2) OBJECT(.\Objects\检测小车行驶速度-LCD1602.obj)
 
 line level    source
 
@@ -14,209 +14,168 @@ line level    source
    4          论坛：rtrobot.org　　　                                                
    5          /******************************************************************************************/
    6          
-   7          #include <STC12C5A60S2.H>//头文件
-   8          #include <LCD1602.h>
+   7          #include <REG52.H>//头文件
+   8          #include <OLED.h>
    9          
   10          
-  11          unsigned int motor1=0;   //计左电机码盘脉冲值
-  12          unsigned int motor2=0;   //计右电机码盘脉冲值
+  11          #define GRATING_NUM 20      //配置光栅格子的数量
+  12          unsigned int motor1=0;   //计左电机码盘脉冲值
   13          unsigned int speed1=0;   //计左电机码盘脉冲值
-  14          unsigned int speed2=0;   //计右电机码盘脉冲值
-  15          unsigned int k=0;
+  14          unsigned int k=0;
+  15          
   16          
-  17          
-  18          /********************************************************************************************
-  19          定时器0初始化
-  20          /********************************************************************************************/
-  21          void T0_init (void)
-  22          {
-  23   1        TMOD = 0x01;  //高4位控制T1，低4位控制T0
-  24   1        EA = 1;   //中断总开关
-  25   1        TH0 = 0;  //16位计数寄存器T0高8位
-  26   1        TL0 = 0;  //16位计数寄存器T0低8位
-  27   1        ET0 = 1;  //T0中断开关
-  28   1        TR0 = 1;  //T0启动开关
-  29   1      }
-  30          
-  31          /*********************************************************************************************
-  32          外部中断INT0、INT1初始化函数
-  33          /********************************************************************************************/
-  34          void INT_init (void)
-  35          {
-  36   1        EA = 1;     //中断总开关  
-  37   1        EX0 = 1;    //允许外部中断0中断
-  38   1        IT0 = 1;    //1：下沿触发  0：低电平触发
-  39   1      //  EX1 = 1;
-  40   1      //  IT1 = 1;
-  41   1      }
-  42          #define MVF_LENGTH 5
-  43          float moving_average_filtre(float xn)
-  44          {
-  45   1        static int index = -1;
-  46   1        static float buffer[MVF_LENGTH];
-  47   1        static float sum = 0;
-  48   1        float yn = 0;
-  49   1        int i = 0;
-  50   1        if(index == -1)
-  51   1        {
-  52   2        //初始化
-  53   2          for(i = 0; i <MVF_LENGTH; i++)
-  54   2          {
-C51 COMPILER V9.60.0.0   _________________LCD1602                                          04/14/2022 20:34:02 PAGE 2   
+  17          /********************************************************************************************
+  18          定时器0初始化
+  19          /********************************************************************************************/
+  20          void T0_init (void)
+  21          {
+  22   1        TMOD = 0x01;  //高4位控制T1，低4位控制T0
+  23   1        EA = 1;   //中断总开关
+  24   1        TH0 = 0;  //16位计数寄存器T0高8位
+  25   1        TL0 = 0;  //16位计数寄存器T0低8位
+  26   1        ET0 = 1;  //T0中断开关
+  27   1        TR0 = 1;  //T0启动开关
+  28   1      }
+  29          
+  30          /*********************************************************************************************
+  31          外部中断INT0、INT1初始化函数
+  32          /********************************************************************************************/
+  33          void INT_init (void)
+  34          {
+  35   1        EA = 1;     //中断总开关  
+  36   1        EX0 = 1;    //允许外部中断0中断
+  37   1        IT0 = 1;    //1：下沿触发  0：低电平触发
+  38   1      }
+  39          #define MVF_LENGTH 5
+  40          float moving_average_filtre(float xn)
+  41          {
+  42   1        static int index = -1;
+  43   1        static float buffer[MVF_LENGTH];
+  44   1        static float sum = 0;
+  45   1        float yn = 0;
+  46   1        int i = 0;
+  47   1        if(index == -1)
+  48   1        {
+  49   2        //初始化
+  50   2          for(i = 0; i <MVF_LENGTH; i++)
+  51   2          {
+  52   3            buffer[i] = xn;
+  53   3          }
+  54   2          sum = xn*MVF_LENGTH;
+C51 COMPILER V9.60.0.0   _________________LCD1602                                          04/14/2022 21:57:05 PAGE 2   
 
-  55   3            buffer[i] = xn;
-  56   3          }
-  57   2          sum = xn*MVF_LENGTH;
-  58   2          index = 0;
-  59   2        }
-  60   1        else
-  61   1        {
-  62   2          sum -= buffer[index];
-  63   2          buffer[index] = xn;
-  64   2          sum += xn;
-  65   2          index++;
-  66   2          if(index >= MVF_LENGTH)
-  67   2          {
-  68   3            index = 0;
-  69   3          }
-  70   2        }
-  71   1        yn = sum/MVF_LENGTH;
-  72   1        return yn;
-  73   1      }
-  74          
-  75          
-  76          float moving_average_filtre1(float xn)
-  77          {
-  78   1        static int index = -1;
-  79   1        static float buffer[MVF_LENGTH];
-  80   1        static float sum = 0;
-  81   1        float yn = 0;
-  82   1        int i = 0;
-  83   1        if(index == -1)
-  84   1        {
-  85   2        //初始化
-  86   2          for(i = 0; i <MVF_LENGTH; i++)
-  87   2          {
-  88   3            buffer[i] = xn;
-  89   3          }
-  90   2          sum = xn*MVF_LENGTH;
-  91   2          index = 0;
-  92   2        }
-  93   1        else
-  94   1        {
-  95   2          sum -= buffer[index];
-  96   2          buffer[index] = xn;
-  97   2          sum += xn;
-  98   2          index++;
-  99   2          if(index >= MVF_LENGTH)
- 100   2          {
- 101   3            index = 0;
- 102   3          }
- 103   2        }
- 104   1        yn = sum/MVF_LENGTH;
- 105   1        return yn;
- 106   1      }
- 107          
- 108          
- 109          /*********************************************************************************************
- 110          主程序
- 111          /********************************************************************************************/
- 112          void main(void)
- 113          {   
- 114   1        LCD1602_Init();
- 115   1        LCD1602_Frist();
- 116   1        INT_init();
-C51 COMPILER V9.60.0.0   _________________LCD1602                                          04/14/2022 20:34:02 PAGE 3   
+  55   2          index = 0;
+  56   2        }
+  57   1        else
+  58   1        {
+  59   2          sum -= buffer[index];
+  60   2          buffer[index] = xn;
+  61   2          sum += xn;
+  62   2          index++;
+  63   2          if(index >= MVF_LENGTH)
+  64   2          {
+  65   3            index = 0;
+  66   3          }
+  67   2        }
+  68   1        yn = sum/MVF_LENGTH;
+  69   1        return yn;
+  70   1      }
+  71          
+  72          
+  73          float moving_average_filtre1(float xn)
+  74          {
+  75   1        static int index = -1;
+  76   1        static float buffer[MVF_LENGTH];
+  77   1        static float sum = 0;
+  78   1        float yn = 0;
+  79   1        int i = 0;
+  80   1        if(index == -1)
+  81   1        {
+  82   2        //初始化
+  83   2          for(i = 0; i <MVF_LENGTH; i++)
+  84   2          {
+  85   3            buffer[i] = xn;
+  86   3          }
+  87   2          sum = xn*MVF_LENGTH;
+  88   2          index = 0;
+  89   2        }
+  90   1        else
+  91   1        {
+  92   2          sum -= buffer[index];
+  93   2          buffer[index] = xn;
+  94   2          sum += xn;
+  95   2          index++;
+  96   2          if(index >= MVF_LENGTH)
+  97   2          {
+  98   3            index = 0;
+  99   3          }
+ 100   2        }
+ 101   1        yn = sum/MVF_LENGTH;
+ 102   1        return yn;
+ 103   1      }
+ 104          
+ 105          int a=123;
+ 106          /*********************************************************************************************
+ 107          主程序
+ 108          /********************************************************************************************/
+ 109          void main(void)
+ 110          {   
+ 111   1        
+ 112   1        OLED_Init();      //初始化OLED  
+ 113   1        OLED_Clear()    ;
+ 114   1        
+ 115   1        INT_init();
+ 116   1        T0_init();
+C51 COMPILER V9.60.0.0   _________________LCD1602                                          04/14/2022 21:57:05 PAGE 3   
 
- 117   1        T0_init();
- 118   1      
- 119   1        while (1)
- 120   1        {
- 121   2          print(line_one,0,'M');
- 122   2          print(line_one,1,'o');
- 123   2          print(line_one,2,'t');
- 124   2          print(line_one,3,'o');
- 125   2          print(line_one,4,'r');
- 126   2          print(line_one,5,'1');
- 127   2          print(line_one,6,':');
- 128   2          print(line_one,7,speed1/1000+0x30);
- 129   2          print(line_one,8,speed1/100%10+0x30);
- 130   2          print(line_one,9,speed1/10%10+0x30);
- 131   2          print(line_one,10,speed1%10+0x30);
- 132   2          print(line_one,11,'R');
- 133   2          print(line_one,12,'/');
- 134   2          print(line_one,13,'M');
- 135   2          print(line_one,14,'I');
- 136   2          print(line_one,15,'N');
- 137   2      
- 138   2          print(line_two,0,'M');
- 139   2          print(line_two,1,'o');
- 140   2          print(line_two,2,'t');
- 141   2          print(line_two,3,'o');
- 142   2          print(line_two,4,'r');
- 143   2          print(line_two,5,'2');
- 144   2          print(line_two,6,':');
- 145   2          print(line_two,7,speed2/1000+0x30);
- 146   2          print(line_two,8,speed2/100%10+0x30);
- 147   2          print(line_two,9,speed2/10%10+0x30);
- 148   2          print(line_two,10,speed2%10+0x30);
- 149   2          print(line_two,11,'R');
- 150   2          print(line_two,12,'/');
- 151   2          print(line_two,13,'M');
- 152   2          print(line_two,14,'I');
- 153   2          print(line_two,15,'N');
- 154   2              DELAY_MS(250);
- 155   2          LCD1602_WriteCMD(CMD_clear);
- 156   2          }
- 157   1      }
- 158          
- 159          /*********************************************************************************************
- 160          外部中断INT0计算电机1的脉冲
- 161          /********************************************************************************************/
- 162          void intersvr1(void) interrupt 0 using 1
- 163          {
- 164   1        motor1++;   
- 165   1      }
- 166          /*********************************************************************************************
- 167          外部中断INT1计算电机2的脉冲
- 168          /********************************************************************************************/
- 169          void intersvr2(void) interrupt 2 using 3
- 170          {
- 171   1        motor2++;
- 172   1      }
- 173          
- 174          
- 175          
- 176          /********************************************************************************************
- 177          定时器0中断函数
- 178          注意：这里的speed为简单书写，逻辑公式过程应该为
-C51 COMPILER V9.60.0.0   _________________LCD1602                                          04/14/2022 20:34:02 PAGE 4   
-
- 179          speed2=小车轮子周长/码盘格式*1秒的码盘脉冲格数
- 180          定时器做出的效果为算出一秒内的距离
- 181          /********************************************************************************************/ 
- 182          void T0 (void) interrupt 1  using 2
- 183          {
- 184   1        TH0=(65536-1000)/256; //16位计数寄存器T0高8位，尝试修改1000成其他值
- 185   1        TL0=(65536-1000)%256; //16位计数寄存器T0低8位，尝试修改1000成其他值
- 186   1        k++;      //k自加1
- 187   1        if(k==1000)   
- 188   1        {
- 189   2          k=0;      //重新定义k的值
- 190   2          speed1=motor1*3;
- 191   2          speed2= moving_average_filtre1( moving_average_filtre(motor1)*3);     // 先除20(光栅数) *60(数据是测的1s)
- 192   2          motor1=0;   //重新定义motor1的值
- 193   2          motor2=0;   //重新定义motor1的值
- 194   2        }   
- 195   1      }
+ 117   1        
+ 118   1        OLED_ShowString(5,0,"Measuring Speed",16);  
+ 119   1          OLED_ShowString(85,4,"R/MIN",16);  
+ 120   1      
+ 121   1        OLED_ShowString(0,4,"Speed:",16); 
+ 122   1        while (1)
+ 123   1        {
+ 124   2      
+ 125   2        OLED_ShowNum(50,4,speed1,4,16);
+ 126   2      
+ 127   2        }
+ 128   1      }
+ 129          
+ 130          /*********************************************************************************************
+ 131          外部中断INT0计算电机1的脉冲
+ 132          /********************************************************************************************/
+ 133          void intersvr1(void) interrupt 0 using 1
+ 134          {
+ 135   1        motor1++;   
+ 136   1      }
+ 137          
+ 138          /********************************************************************************************
+ 139          定时器0中断函数
+ 140          注意：这里的speed为简单书写，逻辑公式过程应该为
+ 141          speed2=小车轮子周长/码盘格式*1秒的码盘脉冲格数
+ 142          定时器做出的效果为算出一秒内的距离
+ 143          /********************************************************************************************/ 
+ 144          void T0_CNT (void) interrupt 1  using 2
+ 145          {
+ 146   1        TH0=(65536-1000)/256; //16位计数寄存器T0高8位，尝试修改1000成其他值
+ 147   1        TL0=(65536-1000)%256; //16位计数寄存器T0低8位，尝试修改1000成其他值
+ 148   1        k++;      //k自加1
+ 149   1        if(k==1000)   
+ 150   1        {
+ 151   2          k=0;      //重新定义k的值
+ 152   2          speed1=moving_average_filtre1( moving_average_filtre(motor1)*3);      // 先除20(光栅数) *60(数据是测的1s)
+ 153   2          motor1=0;   //重新定义motor1的值
+ 154   2      
+ 155   2        }   
+ 156   1      }
 
 
 MODULE INFORMATION:   STATIC OVERLAYABLE
-   CODE SIZE        =   1277    ----
-   CONSTANT SIZE    =   ----    ----
+   CODE SIZE        =    635    ----
+   CONSTANT SIZE    =     29    ----
    XDATA SIZE       =   ----    ----
    PDATA SIZE       =   ----    ----
-   DATA SIZE        =     62      16
+   DATA SIZE        =     60      16
    IDATA SIZE       =   ----    ----
    BIT SIZE         =   ----    ----
 END OF MODULE INFORMATION.

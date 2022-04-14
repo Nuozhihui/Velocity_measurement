@@ -85,7 +85,7 @@ void LCD1602_Init(void)
 /********************************************************************************************
 ÑÓ³Ùº¯Êý
 /********************************************************************************************/
-void DELAY_MS (unsigned int a)
+void DELAY_MS1 (unsigned int a)
 {
 	unsigned int i;
 	while( a-- != 0)
@@ -118,7 +118,7 @@ void LCD1602_Frist(void)
 	print(line_two,11,'a');
 	print(line_two,12,'r');
 	print(line_two,13,'t');	
-	DELAY_MS(1000);	
+	DELAY_MS1(1000);	
 	LCD1602_WriteCMD(CMD_clear);		
 }
 
